@@ -1,142 +1,134 @@
 # 🚇 BVG & S-Bahn Discord Störungsmelder
 
-Ein automatischer Bot, der BVG- und S-Bahn-Störungen überwacht und Discord-Benachrichtigungen sendet.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
 
-## ✨ Features
+## 🚀 1-Klick Deployment mit Render
 
-- 🔍 Überwacht BVG-Störungsmeldungen
-- 🚊 Überwacht S-Bahn-Störungen und Bauarbeiten  
-- 📱 Discord-Benachrichtigungen für neue Störungen
-- ✅ Benachrichtigungen wenn Störungen behoben sind
-- 🔄 Kontinuierliche Überwachung
-- 💾 Persistente Datenspeicherung
-- 🐳 Docker-Support
+### Automatisches Deployment:
+1. Klicke auf "Deploy to Render" Button oben
+2. Verbinde dein GitHub Repository
+3. Setze die Environment Variable: `DISCORD_WEBHOOK_URL`
+4. Klicke "Deploy" - Fertig! 🎉
 
-## 🚀 Quick Start
+### Manuelles Deployment:
 
-### 1. Repository klonen
-```bash
-git clone https://github.com/DEIN_USERNAME/bvg-sbahn-discord-bot.git
-cd bvg-sbahn-discord-bot
+#### 1. Render Account erstellen
+- Gehe zu https://render.com
+- Registriere dich mit GitHub Account
+
+#### 2. Web Service erstellen
+- Dashboard → "New" → "Web Service"
+- Repository auswählen: `BVG-Sbahn-stoerungen`
+- Name: `bvg-sbahn-discord-bot`
+
+#### 3. Build Einstellungen:
+```
+Runtime: Python 3
+Build Command: pip install -r requirements.txt
+Start Command: python bot.py
 ```
 
-### 2. Environment-Variablen setzen
-```bash
-cp .env.example .env
-# Bearbeite .env und füge deine Discord Webhook URL ein
+#### 4. Environment Variables setzen:
+```
+DISCORD_WEBHOOK_URL = https://discord.com/api/webhooks/DEINE_ID/DEIN_TOKEN
+CHECK_INTERVAL = 300
+LOG_LEVEL = INFO
 ```
 
-### 3. Mit Docker starten
-```bash
-docker-compose up -d
-```
+#### 5. Deploy!
+- Klicke "Create Web Service"
+- Automatisches Deployment startet
+- Bot läuft in wenigen Minuten! ✅
 
-### 4. Logs anzeigen
-```bash
-docker-compose logs -f
-```
+## 🎛️ Render Dashboard Features
 
-## 📋 Manuelle Installation
+### Logs anzeigen:
+- Render Dashboard → Dein Service → "Logs"
+- Live-Logs der Bot-Aktivität
 
-### Voraussetzungen
-- Python 3.11+
-- pip
+### Service neustarten:
+- Dashboard → "Manual Deploy"
+- Oder automatisch bei Git Push
 
-### Installation
-```bash
-pip install -r requirements.txt
-python bot.py
-```
+### Environment Variables ändern:
+- Dashboard → "Environment" → Variables bearbeiten
+- Service wird automatisch neugestartet
 
-## ⚙️ Konfiguration
+## 📊 Monitoring
 
-### Discord Webhook erstellen
-1. Gehe zu deinem Discord Server
-2. Server-Einstellungen → Integrationen
-3. "Webhook erstellen" → Kanal wählen
-4. Webhook-URL kopieren und in `.env` einfügen
+### Health Checks:
+- Render prüft automatisch `/health` Endpoint
+- Service wird bei Problemen automatisch neugestartet
 
-### Environment-Variablen
-- `DISCORD_WEBHOOK_URL`: Discord Webhook URL (erforderlich)
-- `CHECK_INTERVAL`: Überprüfungsintervall in Sekunden (Standard: 300)
-- `LOG_LEVEL`: Log-Level (DEBUG, INFO, WARNING, ERROR)
+### Alerts:
+- E-Mail Benachrichtigungen bei Service-Problemen
+- Discord Webhook für Status-Updates
 
-## 🔧 Deployment-Optionen
+## 💰 Kosten
 
-### GitHub Actions (Automatisch)
-1. Füge Server-Secrets hinzu:
-   - `HOST`: Server IP/Domain
-   - `USERNAME`: SSH Username
-   - `SSH_KEY`: Private SSH Key
-2. Push zu `main` Branch triggert automatisches Deployment
+### Free Tier (0€/Monat):
+- ✅ Perfekt für diesen Bot
+- ✅ 750 Stunden/Monat
+- ✅ Automatische SSL
+- ✅ GitHub Integration
+- ⚠️ Service "schläft" nach 15 Min Inaktivität
 
-### Manuelles Server-Deployment
-```bash
-# Auf dem Server
-git clone https://github.com/DEIN_USERNAME/bvg-sbahn-discord-bot.git /opt/bvg-bot
-cd /opt/bvg-bot
-cp .env.example .env
-# .env bearbeiten
-docker-compose up -d
-```
+### Starter Tier (7$/Monat):
+- ✅ 24/7 Uptime (kein Schlafen)
+- ✅ Mehr Ressourcen
+- ✅ Erweiterte Monitoring
 
-### Railway/Render Deployment
-1. Verbinde GitHub Repository
-2. Setze Environment Variable: `DISCORD_WEBHOOK_URL`
-3. Deploy automatisch bei Git Push
+**Empfehlung:** Starte mit Free Tier - perfekt für Störungsmelder!
 
-## 📊 Überwachung
+## 🔧 Troubleshooting
 
-### Logs anzeigen
-```bash
-docker-compose logs -f
-```
+### Bot startet nicht?
+1. Logs prüfen: Dashboard → "Logs"
+2. Environment Variables prüfen
+3. Manual Deploy versuchen
 
-### Bot Status prüfen
-```bash
-docker-compose ps
-```
+### Keine Discord Nachrichten?
+1. Webhook URL korrekt?
+2. Discord Channel Permissions?
+3. Logs auf Fehler prüfen
 
-### Neustart
-```bash
-docker-compose restart
-```
+### Service "schläft" (Free Tier)?
+- Normal bei Free Tier nach 15 Min Inaktivität
+- Bot startet bei nächster Störung automatisch
+- Für 24/7: Upgrade zu Starter Tier
 
-## 🛠️ Entwicklung
+## 🎯 Render vs. Andere Plattformen
 
-### Lokale Entwicklung
-```bash
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python bot.py
-```
+| Feature | Render | Railway | Heroku |
+|---------|--------|---------|--------|
+| Free Tier | ✅ 750h | ✅ 500h | ❌ Kostenpflichtig |
+| GitHub Auto-Deploy | ✅ | ✅ | ✅ |
+| Deutschland Server | ✅ Frankfurt | ❌ | ❌ |
+| SSL | ✅ | ✅ | ✅ |
+| Log Retention | 7 Tage | 7 Tage | 1 Tag |
 
-### Tests ausführen
-```bash
-python -m pytest tests/
-```
+## 📞 Support
 
-## 📝 Changelog
+### Render Support:
+- Dokumentation: https://render.com/docs
+- Community: https://community.render.com
+- E-Mail Support (Paid Plans)
 
-### v1.0.0
-- Initiale Version
-- BVG und S-Bahn Überwachung
-- Discord Benachrichtigungen
-- Docker Support
+### Bot Support:
+- GitHub Issues: Erstelle Issue in Repository
+- Logs: Render Dashboard → "Logs"
 
-## 🤝 Beitragen
+---
 
-1. Fork das Repository
-2. Erstelle einen Feature Branch (`git checkout -b feature/amazing-feature`)
-3. Commit deine Änderungen (`git commit -m 'Add amazing feature'`)
-4. Push zum Branch (`git push origin feature/amazing-feature`)
-5. Öffne einen Pull Request
+## 🚀 Quick Start (5 Minuten)
 
-## 📄 Lizenz
+1. **Fork Repository** auf GitHub
+2. **Render Account** erstellen
+3. **Web Service** verbinden
+4. **Environment Variable** setzen:
+   ```
+   DISCORD_WEBHOOK_URL=deine_webhook_url
+   ```
+5. **Deploy** klicken ✅
 
-Dieses Projekt ist unter der MIT Lizenz lizensiert - siehe [LICENSE](LICENSE) Datei für Details.
-
-## ⚠️ Disclaimer
-
-Dieser Bot ist inoffiziell und nicht mit BVG oder S-Bahn Berlin verbunden.
+**Das war's! Dein Bot läuft in der Cloud!** 🎉
