@@ -374,47 +374,77 @@ def print_banner():
     print(banner)
 
 
-def main():
-    """Hauptfunktion zum Starten des Bots"""
+def print_banner():
+    """Zeigt einen schönen Banner beim Start"""
+    banner = """
+    ╔══════════════════════════════════════════════════════════════╗
+    ║                                                              ║
+    ║   🚇 BVG & S-BAHN DISCORD STÖRUNGSMELDER 🚇                 ║
+    ║                                                              ║
+    ║   📍 Überwacht: BVG & S-Bahn Berlin                        ║
+    ║   📱 Benachrichtigt: Discord                                ║
+    ║   ☁️  Läuft auf: Render.com                                 ║
+    ║   🔄 Status: Ready to Monitor                               ║
+    ║                                                              ║
+    ╚══════════════════════════════════════════════════════════════╝
+    """
+    print(banner)
+
+
+def start_bot():
+    """Startet den Bot in separatem Thread"""
+    global bot_instance
     
-    print_banner()
-    
-    # Lade Discord Webhook URL aus Environment Variable
     DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
     CHECK_INTERVAL = int(os.getenv('CHECK_INTERVAL', '300'))
     
     if not DISCORD_WEBHOOK_URL:
         print("❌ FEHLER: DISCORD_WEBHOOK_URL Environment Variable ist nicht gesetzt!")
-        print()
-        print("🔧 Setup-Anleitung:")
-        print("1️⃣  Kopiere .env.example zu .env")
-        print("2️⃣  Bearbeite .env und füge deine Discord Webhook URL ein:")
-        print("    DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/DEINE_ID/DEIN_TOKEN")
-        print()
-        print("📱 Discord Webhook erstellen:")
-        print("1. Gehe zu deinem Discord Server")
-        print("2. Server-Einstellungen → Integrationen")
-        print("3. 'Webhook erstellen' → Kanal auswählen")
-        print("4. Webhook-URL kopieren")
-        print()
-        return
+        return None
     
     try:
         # Bot erstellen und starten
-        bot = TransportDisruptionBot(DISCORD_WEBHOOK_URL)
+        bot_instance = TransportDisruptionBot(DISCORD_WEBHOOK_URL)
         
         # Einmalige Überprüfung für Test
         print("🧪 Führe initialen Testlauf durch...")
-        bot.check_disruptions()
+        bot_instance.check_disruptions()
         print("✅ Testlauf abgeschlossen!")
-        print()
         
-        # Kontinuierlicher Betrieb
-        bot.run_continuous(check_interval=CHECK_INTERVAL)
+        # Kontinuierlicher Betrieb im Thread
+        bot_thread = bot_instance.run_continuous(check_interval=CHECK_INTERVAL)
+        return bot_thread
         
     except Exception as e:
         print(f"💥 Kritischer Fehler beim Starten des Bots: {e}")
-        return
+        return None
+
+
+def main():
+    """Hauptfunktion - Render Entry Point"""
+    print_banner()
+    
+    # Port für Render
+    PORT = int(os.getenv('PORT', 10000))
+    
+    # Bot in separatem Thread starten
+    bot_thread = start_bot()
+    
+    if bot_thread:
+        print(f"🌐 Flask Server startet auf Port {PORT}")
+        print("🔄 Bot läuft im Hintergrund")
+        
+        # Flask Server für Health Checks starten
+        app.run(
+            host='0.0.0.0',
+            port=PORT,
+            debug=False,
+            threaded=True
+        )
+    else:
+        print("❌ Bot konnte nicht gestartet werden!")
+        # Starte trotzdem Flask für Health Checks
+        app.run(host='0.0.0.0', port=PORT, debug=False)
 
 
 if __name__ == "__main__":
