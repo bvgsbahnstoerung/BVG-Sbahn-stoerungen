@@ -1,134 +1,75 @@
-# 🚇 BVG & S-Bahn Discord Störungsmelder
+# VBB GTFS-RT Discord Bot (GitHub Actions)
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+Ein Discord-Bot, der über GitHub Actions läuft und Echtzeit-Updates vom VBB GTFS-RT Feed in Discord postet.
 
-## 🚀 1-Klick Deployment mit Render
+## Features
 
-### Automatisches Deployment:
-1. Klicke auf "Deploy to Render" Button oben
-2. Verbinde dein GitHub Repository
-3. Setze die Environment Variable: `DISCORD_WEBHOOK_URL`
-4. Klicke "Deploy" - Fertig! 🎉
+- 🚇 Echtzeit-Updates zu Verspätungen und Ausfällen
+- 🔄 Läuft alle 5 Minuten via GitHub Actions
+- 📊 Filterung nach Linien und Verkehrsmitteln
+- 💬 Discord-Embed-Nachrichten mit Farbcodierung
+- 🔒 Verhindert doppelte Nachrichten durch State-Management
+- ☁️ Keine Server nötig - läuft komplett auf GitHub
 
-### Manuelles Deployment:
+## Setup
 
-#### 1. Render Account erstellen
-- Gehe zu https://render.com
-- Registriere dich mit GitHub Account
+### 1. Repository erstellen
 
-#### 2. Web Service erstellen
-- Dashboard → "New" → "Web Service"
-- Repository auswählen: `BVG-Sbahn-stoerungen`
-- Name: `bvg-sbahn-discord-bot`
+1. Erstelle ein neues GitHub Repository
+2. Lade alle Dateien hoch
 
-#### 3. Build Einstellungen:
-```
-Runtime: Python 3
-Build Command: pip install -r requirements.txt
-Start Command: python bot.py
-```
+### 2. Discord Bot erstellen
 
-#### 4. Environment Variables setzen:
-```
-DISCORD_WEBHOOK_URL = https://discord.com/api/webhooks/DEINE_ID/DEIN_TOKEN
-CHECK_INTERVAL = 300
-LOG_LEVEL = INFO
-```
+1. Gehe zu [Discord Developer Portal](https://discord.com/developers/applications)
+2. Erstelle eine neue Application
+3. Gehe zu "Bot" und erstelle einen Bot
+4. Kopiere den Token
+5. Aktiviere "Message Content Intent"
+6. Erstelle einen Webhook für deinen Channel:
+   - Gehe zu deinem Discord-Server
+   - Channel Settings → Integrations → Webhooks → New Webhook
+   - Kopiere die Webhook URL
 
-#### 5. Deploy!
-- Klicke "Create Web Service"
-- Automatisches Deployment startet
-- Bot läuft in wenigen Minuten! ✅
+### 3. GitHub Secrets konfigurieren
 
-## 🎛️ Render Dashboard Features
+Gehe zu deinem Repository → Settings → Secrets and variables → Actions
 
-### Logs anzeigen:
-- Render Dashboard → Dein Service → "Logs"
-- Live-Logs der Bot-Aktivität
+Füge folgende Secrets hinzu:
 
-### Service neustarten:
-- Dashboard → "Manual Deploy"
-- Oder automatisch bei Git Push
+- `DISCORD_TOKEN` - Dein Discord Bot Token
+- `DISCORD_CHANNEL_ID` - Die ID deines Discord Channels
+- `DISCORD_WEBHOOK_URL` - Die Webhook URL (optional, aber empfohlen)
+- `VBB_API_KEY` - VBB API Key (optional)
 
-### Environment Variables ändern:
-- Dashboard → "Environment" → Variables bearbeiten
-- Service wird automatisch neugestartet
+### 4. GitHub Actions aktivieren
 
-## 📊 Monitoring
+1. Gehe zu Actions Tab in deinem Repository
+2. Aktiviere Workflows
+3. Der Bot läuft jetzt automatisch alle 5 Minuten!
 
-### Health Checks:
-- Render prüft automatisch `/health` Endpoint
-- Service wird bei Problemen automatisch neugestartet
+## Konfiguration
 
-### Alerts:
-- E-Mail Benachrichtigungen bei Service-Problemen
-- Discord Webhook für Status-Updates
+### Weitere Optionen als Secrets:
 
-## 💰 Kosten
+- `UPDATE_INTERVAL_MINUTES` - Intervall in Minuten (Standard: 5)
+- `FILTER_LINES` - Kommagetrennte Liste (z.B. "U1,U2,S1")
+- `MIN_DELAY` - Minimale Verspätung in Sekunden (Standard: 300)
 
-### Free Tier (0€/Monat):
-- ✅ Perfekt für diesen Bot
-- ✅ 750 Stunden/Monat
-- ✅ Automatische SSL
-- ✅ GitHub Integration
-- ⚠️ Service "schläft" nach 15 Min Inaktivität
+## Wie es funktioniert
 
-### Starter Tier (7$/Monat):
-- ✅ 24/7 Uptime (kein Schlafen)
-- ✅ Mehr Ressourcen
-- ✅ Erweiterte Monitoring
+1. GitHub Actions startet alle 5 Minuten den Bot
+2. Der Bot lädt den letzten State aus GitHub
+3. Neue Updates werden geprüft und gepostet
+4. Der State wird gespeichert um Duplikate zu verhindern
+5. Der Bot beendet sich automatisch
 
-**Empfehlung:** Starte mit Free Tier - perfekt für Störungsmelder!
+## Manueller Trigger
 
-## 🔧 Troubleshooting
+Du kannst den Bot auch manuell starten:
 
-### Bot startet nicht?
-1. Logs prüfen: Dashboard → "Logs"
-2. Environment Variables prüfen
-3. Manual Deploy versuchen
+1. Gehe zu Actions → VBB Discord Bot
+2. Klicke auf "Run workflow"
 
-### Keine Discord Nachrichten?
-1. Webhook URL korrekt?
-2. Discord Channel Permissions?
-3. Logs auf Fehler prüfen
+## Lizenz
 
-### Service "schläft" (Free Tier)?
-- Normal bei Free Tier nach 15 Min Inaktivität
-- Bot startet bei nächster Störung automatisch
-- Für 24/7: Upgrade zu Starter Tier
-
-## 🎯 Render vs. Andere Plattformen
-
-| Feature | Render | Railway | Heroku |
-|---------|--------|---------|--------|
-| Free Tier | ✅ 750h | ✅ 500h | ❌ Kostenpflichtig |
-| GitHub Auto-Deploy | ✅ | ✅ | ✅ |
-| Deutschland Server | ✅ Frankfurt | ❌ | ❌ |
-| SSL | ✅ | ✅ | ✅ |
-| Log Retention | 7 Tage | 7 Tage | 1 Tag |
-
-## 📞 Support
-
-### Render Support:
-- Dokumentation: https://render.com/docs
-- Community: https://community.render.com
-- E-Mail Support (Paid Plans)
-
-### Bot Support:
-- GitHub Issues: Erstelle Issue in Repository
-- Logs: Render Dashboard → "Logs"
-
----
-
-## 🚀 Quick Start (5 Minuten)
-
-1. **Fork Repository** auf GitHub
-2. **Render Account** erstellen
-3. **Web Service** verbinden
-4. **Environment Variable** setzen:
-   ```
-   DISCORD_WEBHOOK_URL=deine_webhook_url
-   ```
-5. **Deploy** klicken ✅
-
-**Das war's! Dein Bot läuft in der Cloud!** 🎉
+MIT
