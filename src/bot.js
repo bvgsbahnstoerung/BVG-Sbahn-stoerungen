@@ -111,13 +111,29 @@ export class VBBDiscordBot {
     if (alert.informedEntity.length > 0) {
       const routes = alert.informedEntity
         .filter(e => e.routeId)
-        .map(e => e.routeId)
+        .map(e => this.formatRouteName(e.routeId))
+        .filter((v, i, a) => a.indexOf(v) === i) // Duplikate entfernen
         .join(', ');
       
       if (routes) {
         embed.fields.push({
-          name: 'Betroffene Linien',
+          name: '🚇 Betroffene Linien',
           value: routes,
+          inline: false
+        });
+      }
+
+      // Betroffene Haltestellen
+      const stops = alert.informedEntity
+        .filter(e => e.stopId)
+        .map(e => this.formatStopName(e.stopId))
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .slice(0, 5); // Max 5 Stationen
+      
+      if (stops.length > 0) {
+        embed.fields.push({
+          name: '🚉 Betroffene Haltestellen',
+          value: stops.join(', ') + (alert.informedEntity.filter(e => e.stopId).length > 5 ? ' ...' : ''),
           inline: false
         });
       }
@@ -129,36 +145,114 @@ export class VBBDiscordBot {
   createUpdateEmbed(update) {
     const delayText = this.gtfsReader.formatDelay(update.delay);
     const color = update.delay > 0 ? '#FF9800' : '#4CAF50';
+    const icon = this.getTransportIcon(update.routeId);
+
+    // Formatierte Namen
+    const routeName = this.formatRouteName(update.routeId);
+    const stopName = this.formatStopName(update.stopId);
 
     return {
       color: parseInt(color.replace('#', ''), 16),
-      title: `🚇 Verspätung auf Linie ${update.routeId || 'Unbekannt'}`,
+      title: `${icon} Verspätung auf Linie ${routeName}`,
       fields: [
         {
-          name: 'Verspätung',
+          name: '⏱️ Verspätung',
           value: delayText,
           inline: true
         },
         {
-          name: 'Haltestelle',
-          value: update.stopId,
+          name: '🚉 Haltestelle',
+          value: stopName,
           inline: true
         }
       ],
+      footer: {
+        text: update.tripId ? `Fahrt ${update.tripId.slice(0, 15)}...` : 'VBB Echtzeit'
+      },
       timestamp: new Date().toISOString()
     };
   }
 
+  formatRouteName(routeId) {
+    if (!routeId) return 'Unbekannt';
+    
+    // Entferne VBB-interne Präfixe
+    // Beispiele: "17440_900" -> "900", "17529_U6" -> "U6"
+    const match = routeId.match(/[_]?([A-Z0-9]+)$/);
+    if (match) {
+      const name = match[1];
+      
+      // Füge Leerzeichen bei U/S-Bahn ein: "U6" -> "U 6"
+      if (/^[US]\d+/.test(name)) {
+        return name.replace(/^([US])(\d+)/, '$1 $2');
+      }
+      
+      return name;
+    }
+    
+    return routeId;
+  }
+
+  formatStopName(stopId) {
+    if (!stopId) return 'Unbekannt';
+    
+    // VBB Stop-ID Format: de:11000:900120004::5
+    // Extrahiere die Stations-ID (900120004)
+    const match = stopId.match(/de:11000:(\d+)/);
+    if (match) {
+      const stationId = match[1];
+      
+      // Bekannte Stationen-Mapping (Beispiele)
+      const knownStations = {
+        '900120004': 'S+U Alexanderplatz',
+        '900100001': 'S+U Zoologischer Garten',
+        '900003201': 'U Kottbusser Tor',
+        '900120003': 'S Hackescher Markt',
+        '900017104': 'S+U Hauptbahnhof',
+        '900024106': 'U Mehringdamm',
+        '900007102': 'U Schloßstraße',
+        '900014101': 'S Ostkreuz',
+        '900110001': 'U Spichernstraße',
+      };
+      
+      if (knownStations[stationId]) {
+        return knownStations[stationId];
+      }
+      
+      // Fallback: Zeige verkürzte ID
+      return `Station ${stationId.slice(-4)}`;
+    }
+    
+    // Wenn Format nicht erkannt, zeige letzten Teil
+    const parts = stopId.split(':');
+    return parts[parts.length - 2] || stopId;
+  }
+
+  getTransportIcon(routeId) {
+    if (!routeId) return '🚇';
+    
+    const route = this.formatRouteName(routeId);
+    
+    if (route.startsWith('U ')) return '🚇'; // U-Bahn
+    if (route.startsWith('S ')) return '🚊'; // S-Bahn
+    if (route.startsWith('RE') || route.startsWith('RB')) return '🚆'; // Regional
+    if (route.match(/^\d+$/)) return '🚌'; // Bus (nur Zahlen)
+    if (route.startsWith('M')) return '🚊'; // Metro Tram
+    if (route.startsWith('X')) return '🚌'; // Express Bus
+    
+    return '🚇'; // Default
+  }
+
   getAlertColor(effect) {
     const effectColors = {
-      1: '#FF0000',
-      2: '#FF9800',
-      3: '#FFC107',
-      4: '#2196F3',
-      5: '#9C27B0',
-      6: '#795548',
-      7: '#F44336',
-      8: '#000000',
+      1: '#FF0000', // NO_SERVICE
+      2: '#FF9800', // REDUCED_SERVICE
+      3: '#FFC107', // SIGNIFICANT_DELAYS
+      4: '#2196F3', // DETOUR
+      5: '#9C27B0', // ADDITIONAL_SERVICE
+      6: '#795548', // MODIFIED_SERVICE
+      7: '#F44336', // STOP_MOVED
+      8: '#000000', // NO_EFFECT
     };
 
     return effectColors[effect] || '#808080';
