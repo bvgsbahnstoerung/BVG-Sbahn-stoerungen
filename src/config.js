@@ -10,9 +10,8 @@ export const config = {
   },
   vbb: {
     apiKey: process.env.VBB_API_KEY,
-    feedUrl: process.env.VBB_API_KEY 
-      ? `https://api.vbb.de/gtfs-rt/v1/feed?apikey=${process.env.VBB_API_KEY}`
-      : 'https://gtfs.mfdz.de/VBB.gtfs.rt',
+    // Aktuelle VBB GTFS-RT Feed URL (öffentlich, kein API Key nötig)
+    feedUrl: process.env.VBB_FEED_URL || 'https://production.gtfsrt.vbb.de/data',
   },
   filters: {
     lines: process.env.FILTER_LINES ? process.env.FILTER_LINES.split(',').map(l => l.trim()) : [],
