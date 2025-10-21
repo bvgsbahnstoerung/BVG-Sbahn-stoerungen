@@ -51,14 +51,13 @@ export class VBBDiscordBot {
     const embeds = [];
 
     for (const alert of alerts) {
-      embeds.push(this.createAlertEmbed(alert));
+      embeds.push(this.createDetailedAlertEmbed(alert));
     }
 
     for (const update of updates) {
       embeds.push(this.createUpdateEmbed(update));
     }
 
-    // Discord erlaubt max 10 embeds pro Message
     for (let i = 0; i < embeds.length; i += 10) {
       const batch = embeds.slice(i, i + 10);
       
@@ -68,7 +67,6 @@ export class VBBDiscordBot {
         body: JSON.stringify({ embeds: batch })
       });
 
-      // Rate limiting vermeiden
       if (i + 10 < embeds.length) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -85,7 +83,7 @@ export class VBBDiscordBot {
     const channel = await client.channels.fetch(config.discord.channelId);
 
     for (const alert of alerts) {
-      await channel.send({ embeds: [this.createAlertEmbed(alert)] });
+      await channel.send({ embeds: [this.createDetailedAlertEmbed(alert)] });
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
@@ -97,28 +95,65 @@ export class VBBDiscordBot {
     await client.destroy();
   }
 
-  createAlertEmbed(alert) {
-    const color = this.getAlertColor(alert.effect);
+  createDetailedAlertEmbed(alert) {
+    const color = this.getAlertColor(alert.effect, alert.cause);
+    const icon = this.getAlertIcon(alert.cause);
     
     const embed = {
       color: parseInt(color.replace('#', ''), 16),
-      title: `⚠️ ${alert.headerText}`,
-      description: alert.descriptionText || 'Keine Details verfügbar',
+      title: `${icon} ${alert.headerText}`,
+      description: alert.descriptionText || 'Keine weiteren Details verfügbar',
       timestamp: new Date().toISOString(),
       fields: []
     };
 
+    // Grund und Auswirkung
+    embed.fields.push({
+      name: '📋 Grund',
+      value: alert.causeName,
+      inline: true
+    });
+
+    embed.fields.push({
+      name: '⚡ Auswirkung',
+      value: alert.effectName,
+      inline: true
+    });
+
+    // Zeitraum
+    if (alert.activePeriod && alert.activePeriod.length > 0) {
+      const period = alert.activePeriod[0];
+      let timeText = '';
+      
+      if (period.start && period.end) {
+        timeText = `Von ${this.gtfsReader.formatDate(period.start)}\nBis ${this.gtfsReader.formatDate(period.end)}`;
+      } else if (period.start) {
+        timeText = `Ab ${this.gtfsReader.formatDate(period.start)}`;
+      } else if (period.end) {
+        timeText = `Bis ${this.gtfsReader.formatDate(period.end)}`;
+      }
+      
+      if (timeText) {
+        embed.fields.push({
+          name: '📅 Zeitraum',
+          value: timeText,
+          inline: false
+        });
+      }
+    }
+
+    // Betroffene Linien
     if (alert.informedEntity.length > 0) {
       const routes = alert.informedEntity
         .filter(e => e.routeId)
         .map(e => this.formatRouteName(e.routeId))
-        .filter((v, i, a) => a.indexOf(v) === i) // Duplikate entfernen
-        .join(', ');
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .slice(0, 10);
       
-      if (routes) {
+      if (routes.length > 0) {
         embed.fields.push({
           name: '🚇 Betroffene Linien',
-          value: routes,
+          value: routes.join(', ') + (alert.informedEntity.filter(e => e.routeId).length > 10 ? ' ...' : ''),
           inline: false
         });
       }
@@ -128,15 +163,39 @@ export class VBBDiscordBot {
         .filter(e => e.stopId)
         .map(e => this.formatStopName(e.stopId))
         .filter((v, i, a) => a.indexOf(v) === i)
-        .slice(0, 5); // Max 5 Stationen
+        .slice(0, 5);
       
       if (stops.length > 0) {
+        const stopCount = alert.informedEntity.filter(e => e.stopId).length;
         embed.fields.push({
           name: '🚉 Betroffene Haltestellen',
-          value: stops.join(', ') + (alert.informedEntity.filter(e => e.stopId).length > 5 ? ' ...' : ''),
+          value: stops.join(', ') + (stopCount > 5 ? ` und ${stopCount - 5} weitere` : ''),
           inline: false
         });
       }
+
+      // Richtung (wenn vorhanden)
+      const directions = alert.informedEntity
+        .filter(e => e.trip && e.trip.directionId !== undefined)
+        .map(e => e.trip.directionId === 0 ? 'Richtung 1' : 'Richtung 2')
+        .filter((v, i, a) => a.indexOf(v) === i);
+      
+      if (directions.length > 0) {
+        embed.fields.push({
+          name: '➡️ Richtung',
+          value: directions.join(', '),
+          inline: true
+        });
+      }
+    }
+
+    // Link (wenn vorhanden)
+    if (alert.url) {
+      embed.fields.push({
+        name: '🔗 Weitere Informationen',
+        value: `[Hier klicken](${alert.url})`,
+        inline: false
+      });
     }
 
     return embed;
@@ -147,7 +206,6 @@ export class VBBDiscordBot {
     const color = update.delay > 0 ? '#FF9800' : '#4CAF50';
     const icon = this.getTransportIcon(update.routeId);
 
-    // Formatierte Namen
     const routeName = this.formatRouteName(update.routeId);
     const stopName = this.formatStopName(update.stopId);
 
@@ -167,22 +225,52 @@ export class VBBDiscordBot {
         }
       ],
       footer: {
-        text: update.tripId ? `Fahrt ${update.tripId.slice(0, 15)}...` : 'VBB Echtzeit'
+        text: 'VBB Echtzeit-Daten'
       },
       timestamp: new Date().toISOString()
     };
   }
 
+  getAlertIcon(cause) {
+    const icons = {
+      4: '✊',   // Streik
+      5: '📢',   // Demonstration
+      6: '🚨',   // Unfall
+      7: '🎄',   // Feiertag
+      8: '🌧️',   // Wetter
+      9: '🔧',   // Wartung
+      10: '🏗️',  // Bauarbeiten
+      11: '👮',  // Polizeieinsatz
+      12: '🚑',  // Medizinischer Notfall
+    };
+    return icons[cause] || '⚠️';
+  }
+
+  getAlertColor(effect, cause) {
+    // Bauarbeiten = Orange
+    if (cause === 10) return '#FF9800';
+    
+    const effectColors = {
+      1: '#FF0000',  // Kein Service
+      2: '#FF9800',  // Reduzierter Service
+      3: '#FFC107',  // Erhebliche Verspätungen
+      4: '#2196F3',  // Umleitung
+      5: '#9C27B0',  // Zusätzlicher Service
+      6: '#795548',  // Geänderter Service
+      7: '#F44336',  // Haltestelle verlegt
+      8: '#E91E63',  // Haltestelle geschlossen
+    };
+
+    return effectColors[effect] || '#808080';
+  }
+
   formatRouteName(routeId) {
     if (!routeId) return 'Unbekannt';
     
-    // Entferne VBB-interne Präfixe
-    // Beispiele: "17440_900" -> "900", "17529_U6" -> "U6"
     const match = routeId.match(/[_]?([A-Z0-9]+)$/);
     if (match) {
       const name = match[1];
       
-      // Füge Leerzeichen bei U/S-Bahn ein: "U6" -> "U 6"
       if (/^[US]\d+/.test(name)) {
         return name.replace(/^([US])(\d+)/, '$1 $2');
       }
@@ -196,13 +284,10 @@ export class VBBDiscordBot {
   formatStopName(stopId) {
     if (!stopId) return 'Unbekannt';
     
-    // VBB Stop-ID Format: de:11000:900120004::5
-    // Extrahiere die Stations-ID (900120004)
     const match = stopId.match(/de:11000:(\d+)/);
     if (match) {
       const stationId = match[1];
       
-      // Bekannte Stationen-Mapping (Beispiele)
       const knownStations = {
         '900120004': 'S+U Alexanderplatz',
         '900100001': 'S+U Zoologischer Garten',
@@ -219,11 +304,9 @@ export class VBBDiscordBot {
         return knownStations[stationId];
       }
       
-      // Fallback: Zeige verkürzte ID
       return `Station ${stationId.slice(-4)}`;
     }
     
-    // Wenn Format nicht erkannt, zeige letzten Teil
     const parts = stopId.split(':');
     return parts[parts.length - 2] || stopId;
   }
@@ -233,28 +316,13 @@ export class VBBDiscordBot {
     
     const route = this.formatRouteName(routeId);
     
-    if (route.startsWith('U ')) return '🚇'; // U-Bahn
-    if (route.startsWith('S ')) return '🚊'; // S-Bahn
-    if (route.startsWith('RE') || route.startsWith('RB')) return '🚆'; // Regional
-    if (route.match(/^\d+$/)) return '🚌'; // Bus (nur Zahlen)
-    if (route.startsWith('M')) return '🚊'; // Metro Tram
-    if (route.startsWith('X')) return '🚌'; // Express Bus
+    if (route.startsWith('U ')) return '🚇';
+    if (route.startsWith('S ')) return '🚊';
+    if (route.startsWith('RE') || route.startsWith('RB')) return '🚆';
+    if (route.match(/^\d+$/)) return '🚌';
+    if (route.startsWith('M')) return '🚊';
+    if (route.startsWith('X')) return '🚌';
     
-    return '🚇'; // Default
-  }
-
-  getAlertColor(effect) {
-    const effectColors = {
-      1: '#FF0000', // NO_SERVICE
-      2: '#FF9800', // REDUCED_SERVICE
-      3: '#FFC107', // SIGNIFICANT_DELAYS
-      4: '#2196F3', // DETOUR
-      5: '#9C27B0', // ADDITIONAL_SERVICE
-      6: '#795548', // MODIFIED_SERVICE
-      7: '#F44336', // STOP_MOVED
-      8: '#000000', // NO_EFFECT
-    };
-
-    return effectColors[effect] || '#808080';
+    return '🚇';
   }
 }
