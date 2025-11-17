@@ -1,5 +1,11 @@
 {
   "lastAlerts": {},
-  "lastUpdates": {},
-  "lastRun": "2025-11-17T06:59:00.671Z"
+  "lastUpdates": {
+    "278678501_de:12064:900321171::2": {
+      "timestamp": 1763364517271,
+      "delay": 9673,
+      "routeId": "4236_700"
+    }
+  },
+  "lastRun": "2025-11-17T07:28:37.633Z"
 }
