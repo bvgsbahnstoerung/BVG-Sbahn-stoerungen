@@ -43,16 +43,31 @@ class HafasDiscordBot:
     
     def fetch_hafas_messages(self) -> List[Dict]:
         """Ruft Störungsmeldungen von der BVG HAFAS API ab"""
+        # Primäre API
         url = "https://v6.bvg.transport.rest/journeys/remarks"
         
+        # Fallback API
+        fallback_url = "https://v5.vbb.transport.rest/journeys/remarks"
+        
+        # Versuche primäre API
         try:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             remarks = response.json()
             return remarks if isinstance(remarks, list) else []
         except Exception as e:
-            print(f"Fehler beim Abrufen der HAFAS-Daten: {e}")
-            return []
+            print(f"Primäre API fehlgeschlagen: {e}")
+            print("Versuche Fallback-API...")
+            
+            # Versuche Fallback
+            try:
+                response = requests.get(fallback_url, timeout=10)
+                response.raise_for_status()
+                remarks = response.json()
+                return remarks if isinstance(remarks, list) else []
+            except Exception as e2:
+                print(f"Fallback-API auch fehlgeschlagen: {e2}")
+                return []
     
     def create_discord_embed(self, message: Dict, resolved: bool = False) -> Dict:
         """Erstellt ein Discord Embed aus einer HAFAS-Nachricht"""
