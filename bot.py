@@ -8,24 +8,36 @@ class HafasDiscordBot:
     def __init__(self, discord_webhook_url: str, state_file: str = "sent_messages.json"):
         self.discord_webhook_url = discord_webhook_url
         self.state_file = state_file
-        self.sent_ids: Set[str] = self.load_state()
+        self.state = self.load_state()
         
-    def load_state(self) -> Set[str]:
-        """Lädt bereits gesendete Nachrichten-IDs aus der Datei"""
+    def load_state(self) -> Dict:
+        """Lädt bereits gesendete Nachrichten und aktive Störungen aus der Datei"""
         if os.path.exists(self.state_file):
             try:
                 with open(self.state_file, 'r') as f:
                     data = json.load(f)
-                    return set(data.get('sent_ids', []))
+                    # Migriere altes Format zu neuem Format
+                    if 'sent_ids' in data and 'active_disruptions' not in data:
+                        return {
+                            'sent_ids': set(data.get('sent_ids', [])),
+                            'active_disruptions': {}
+                        }
+                    return {
+                        'sent_ids': set(data.get('sent_ids', [])),
+                        'active_disruptions': data.get('active_disruptions', {})
+                    }
             except Exception as e:
                 print(f"Fehler beim Laden des Status: {e}")
-        return set()
+        return {'sent_ids': set(), 'active_disruptions': {}}
     
     def save_state(self):
-        """Speichert gesendete Nachrichten-IDs in die Datei"""
+        """Speichert gesendete Nachrichten-IDs und aktive Störungen in die Datei"""
         try:
             with open(self.state_file, 'w') as f:
-                json.dump({'sent_ids': list(self.sent_ids)}, f)
+                json.dump({
+                    'sent_ids': list(self.state['sent_ids']),
+                    'active_disruptions': self.state['active_disruptions']
+                }, f, indent=2)
         except Exception as e:
             print(f"Fehler beim Speichern des Status: {e}")
     
@@ -42,28 +54,56 @@ class HafasDiscordBot:
             print(f"Fehler beim Abrufen der HAFAS-Daten: {e}")
             return []
     
-    def create_discord_embed(self, message: Dict) -> Dict:
+    def create_discord_embed(self, message: Dict, resolved: bool = False) -> Dict:
         """Erstellt ein Discord Embed aus einer HAFAS-Nachricht"""
-        embed = {
-            "title": message.get('summary', 'Verkehrsmeldung'),
-            "description": message.get('text', 'Keine Details verfügbar'),
-            "color": self.get_color_for_type(message.get('type')),
-            "timestamp": datetime.utcnow().isoformat(),
-            "footer": {
-                "text": "BVG/VBB HAFAS"
+        if resolved:
+            embed = {
+                "title": "✅ Störung behoben",
+                "description": message.get('summary', 'Verkehrsmeldung'),
+                "color": 0x00FF00,  # Grün
+                "timestamp": datetime.utcnow().isoformat(),
+                "footer": {
+                    "text": "BVG/VBB HAFAS"
+                }
             }
-        }
+            
+            # Füge ursprüngliche Details hinzu
+            if message.get('text'):
+                embed["fields"] = [{
+                    "name": "Details",
+                    "value": message.get('text', 'Keine Details verfügbar'),
+                    "inline": False
+                }]
+        else:
+            embed = {
+                "title": "⚠️ " + message.get('summary', 'Verkehrsmeldung'),
+                "description": message.get('text', 'Keine Details verfügbar'),
+                "color": self.get_color_for_type(message.get('type')),
+                "timestamp": datetime.utcnow().isoformat(),
+                "footer": {
+                    "text": "BVG/VBB HAFAS"
+                }
+            }
         
         # Füge betroffene Linien hinzu
         if 'products' in message:
             products = message['products']
             product_names = [p.get('name', '') for p in products if isinstance(p, dict)]
             if product_names:
-                embed["fields"] = [{
-                    "name": "Betroffene Linien",
-                    "value": ", ".join(product_names),
-                    "inline": False
-                }]
+                if resolved:
+                    if 'fields' not in embed:
+                        embed["fields"] = []
+                    embed["fields"].append({
+                        "name": "Betroffene Linien",
+                        "value": ", ".join(product_names),
+                        "inline": False
+                    })
+                else:
+                    embed["fields"] = [{
+                        "name": "Betroffene Linien",
+                        "value": ", ".join(product_names),
+                        "inline": False
+                    }]
         
         return embed
     
@@ -76,9 +116,9 @@ class HafasDiscordBot:
         }
         return colors.get(msg_type, 0xFF0000)  # Standard: Rot
     
-    def send_to_discord(self, message: Dict):
+    def send_to_discord(self, message: Dict, resolved: bool = False):
         """Sendet eine Nachricht an Discord"""
-        embed = self.create_discord_embed(message)
+        embed = self.create_discord_embed(message, resolved)
         payload = {
             "embeds": [embed]
         }
@@ -90,7 +130,8 @@ class HafasDiscordBot:
                 timeout=10
             )
             response.raise_for_status()
-            print(f"Nachricht gesendet: {message.get('id')}")
+            status = "behoben" if resolved else "gesendet"
+            print(f"Nachricht {status}: {message.get('id')}")
         except Exception as e:
             print(f"Fehler beim Senden an Discord: {e}")
     
@@ -104,6 +145,23 @@ class HafasDiscordBot:
         text = message.get('text', '')
         return f"{hash(summary + text)}"
     
+    def check_resolved_disruptions(self, current_message_ids: Set[str]):
+        """Prüft, welche Störungen nicht mehr aktiv sind"""
+        active_disruptions = self.state['active_disruptions']
+        resolved_ids = []
+        
+        for msg_id, msg_data in active_disruptions.items():
+            if msg_id not in current_message_ids:
+                # Störung wurde behoben
+                resolved_ids.append(msg_id)
+                self.send_to_discord(msg_data, resolved=True)
+        
+        # Entferne behobene Störungen aus active_disruptions
+        for msg_id in resolved_ids:
+            del active_disruptions[msg_id]
+        
+        return len(resolved_ids)
+    
     def run(self):
         """Hauptfunktion: Ruft Meldungen ab und sendet neue an Discord"""
         print(f"Starte Bot um {datetime.now()}")
@@ -111,20 +169,42 @@ class HafasDiscordBot:
         messages = self.fetch_hafas_messages()
         print(f"{len(messages)} Meldungen abgerufen")
         
+        current_message_ids = set()
         new_count = 0
+        
+        # Verarbeite alle aktuellen Meldungen
         for msg in messages:
             msg_id = self.generate_message_id(msg)
+            current_message_ids.add(msg_id)
             
-            if msg_id not in self.sent_ids:
-                self.send_to_discord(msg)
-                self.sent_ids.add(msg_id)
+            # Prüfe ob es eine neue Meldung ist
+            if msg_id not in self.state['sent_ids']:
+                self.send_to_discord(msg, resolved=False)
+                self.state['sent_ids'].add(msg_id)
                 new_count += 1
+            
+            # Speichere/aktualisiere in active_disruptions
+            self.state['active_disruptions'][msg_id] = {
+                'id': msg_id,
+                'summary': msg.get('summary', ''),
+                'text': msg.get('text', ''),
+                'type': msg.get('type', ''),
+                'products': msg.get('products', [])
+            }
         
+        # Prüfe auf behobene Störungen
+        resolved_count = self.check_resolved_disruptions(current_message_ids)
+        
+        # Speichere Status
+        self.save_state()
+        
+        # Ausgabe
         if new_count > 0:
-            self.save_state()
             print(f"{new_count} neue Meldungen gesendet")
-        else:
-            print("Keine neuen Meldungen")
+        if resolved_count > 0:
+            print(f"{resolved_count} Störungen als behoben gemeldet")
+        if new_count == 0 and resolved_count == 0:
+            print("Keine Änderungen")
 
 if __name__ == "__main__":
     # Discord Webhook URL aus Umgebungsvariable
