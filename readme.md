@@ -1,75 +1,104 @@
-# VBB GTFS-RT Discord Bot (GitHub Actions)
+BVG/VBB HAFAS Discord Bot
+Dieser Bot ruft automatisch Verkehrsmeldungen von der BVG/VBB HAFAS API ab und sendet neue Meldungen an einen Discord-Kanal.
+Features
 
-Ein Discord-Bot, der über GitHub Actions läuft und Echtzeit-Updates vom VBB GTFS-RT Feed in Discord postet.
+🚇 Automatisches Abrufen von BVG/VBB Störungsmeldungen
+💬 Versand an Discord via Webhook
+🔄 Speichert bereits gesendete Meldungen (keine Duplikate)
+⏰ Läuft automatisch alle 15 Minuten via GitHub Actions
+🎨 Farbcodierte Discord Embeds nach Meldungstyp
 
-## Features
+Setup
+1. Repository erstellen
 
-- 🚇 Echtzeit-Updates zu Verspätungen und Ausfällen
-- 🔄 Läuft alle 5 Minuten via GitHub Actions
-- 📊 Filterung nach Linien und Verkehrsmitteln
-- 💬 Discord-Embed-Nachrichten mit Farbcodierung
-- 🔒 Verhindert doppelte Nachrichten durch State-Management
-- ☁️ Keine Server nötig - läuft komplett auf GitHub
+Erstelle ein neues GitHub Repository
+Lade folgende Dateien hoch:
 
-## Setup
+bot.py (Hauptprogramm)
+.github/workflows/hafas-bot.yml (Workflow)
+requirements.txt (Dependencies)
+README.md (diese Datei)
+sent_messages.json (erstelle eine leere Datei mit {"sent_ids": []})
 
-### 1. Repository erstellen
 
-1. Erstelle ein neues GitHub Repository
-2. Lade alle Dateien hoch
 
-### 2. Discord Bot erstellen
+2. Discord Webhook erstellen
 
-1. Gehe zu [Discord Developer Portal](https://discord.com/developers/applications)
-2. Erstelle eine neue Application
-3. Gehe zu "Bot" und erstelle einen Bot
-4. Kopiere den Token
-5. Aktiviere "Message Content Intent"
-6. Erstelle einen Webhook für deinen Channel:
-   - Gehe zu deinem Discord-Server
-   - Channel Settings → Integrations → Webhooks → New Webhook
-   - Kopiere die Webhook URL
+Gehe in deinen Discord Server
+Rechtsklick auf den gewünschten Kanal → Kanal bearbeiten
+Gehe zu Integrationen → Webhooks
+Klicke auf Neuer Webhook
+Gib dem Webhook einen Namen (z.B. "BVG Bot")
+Kopiere die Webhook-URL
 
-### 3. GitHub Secrets konfigurieren
+3. GitHub Secret konfigurieren
 
-Gehe zu deinem Repository → Settings → Secrets and variables → Actions
+Gehe in dein GitHub Repository
+Klicke auf Settings → Secrets and variables → Actions
+Klicke auf New repository secret
+Name: DISCORD_WEBHOOK_URL
+Value: Füge deine Discord Webhook-URL ein
+Klicke auf Add secret
 
-Füge folgende Secrets hinzu:
+4. Workflow Permissions setzen
 
-- `DISCORD_TOKEN` - Dein Discord Bot Token
-- `DISCORD_CHANNEL_ID` - Die ID deines Discord Channels
-- `DISCORD_WEBHOOK_URL` - Die Webhook URL (optional, aber empfohlen)
-- `VBB_API_KEY` - VBB API Key (optional)
+Gehe zu Settings → Actions → General
+Scrolle zu Workflow permissions
+Wähle Read and write permissions
+Aktiviere Allow GitHub Actions to create and approve pull requests
+Klicke auf Save
 
-### 4. GitHub Actions aktivieren
+5. Bot starten
+Der Bot läuft automatisch alle 15 Minuten. Du kannst ihn auch manuell starten:
 
-1. Gehe zu Actions Tab in deinem Repository
-2. Aktiviere Workflows
-3. Der Bot läuft jetzt automatisch alle 5 Minuten!
+Gehe zu Actions
+Wähle den Workflow BVG HAFAS Discord Bot
+Klicke auf Run workflow
 
-## Konfiguration
+Dateistruktur
+.
+├── .github/
+│   └── workflows/
+│       └── hafas-bot.yml
+├── bot.py
+├── requirements.txt
+├── sent_messages.json
+└── README.md
+Wie funktioniert es?
 
-### Weitere Optionen als Secrets:
+GitHub Actions führt den Bot alle 15 Minuten aus
+Der Bot ruft aktuelle Meldungen von der BVG HAFAS API ab
+Jede Meldung wird mit bereits gesendeten verglichen
+Neue Meldungen werden als Discord Embed gesendet
+Die Liste der gesendeten Meldungen wird in sent_messages.json gespeichert
+Die Änderungen werden automatisch ins Repository committed
 
-- `UPDATE_INTERVAL_MINUTES` - Intervall in Minuten (Standard: 5)
-- `FILTER_LINES` - Kommagetrennte Liste (z.B. "U1,U2,S1")
-- `MIN_DELAY` - Minimale Verspätung in Sekunden (Standard: 300)
+Anpassungen
+Interval ändern
+Bearbeite .github/workflows/hafas-bot.yml und ändere die Cron-Expression:
+yamlschedule:
+  - cron: '*/15 * * * *'  # Alle 15 Minuten
+  # - cron: '0 * * * *'   # Jede Stunde
+  # - cron: '0 */2 * * *' # Alle 2 Stunden
+API-Endpoint anpassen
+Wenn du andere Daten abrufen möchtest, kannst du in bot.py die URL ändern:
+pythonurl = "https://v6.bvg.transport.rest/journeys/remarks"
+Weitere Endpoints findest du in der BVG HAFAS API Dokumentation.
+Troubleshooting
+Bot sendet keine Nachrichten
 
-## Wie es funktioniert
+Überprüfe, ob der Workflow läuft (Actions Tab)
+Prüfe die Logs im Actions Tab
+Stelle sicher, dass DISCORD_WEBHOOK_URL korrekt gesetzt ist
 
-1. GitHub Actions startet alle 5 Minuten den Bot
-2. Der Bot lädt den letzten State aus GitHub
-3. Neue Updates werden geprüft und gepostet
-4. Der State wird gespeichert um Duplikate zu verhindern
-5. Der Bot beendet sich automatisch
+"Permission denied" Fehler
 
-## Manueller Trigger
+Stelle sicher, dass Workflow Permissions auf "Read and write" gesetzt sind
 
-Du kannst den Bot auch manuell starten:
+Duplikate werden gesendet
 
-1. Gehe zu Actions → VBB Discord Bot
-2. Klicke auf "Run workflow"
+Prüfe, ob sent_messages.json korrekt committed wird
+Stelle sicher, dass die Datei nicht von .gitignore ausgeschlossen ist
 
-## Lizenz
-
-MIT
+Lizenz
+MIT License - Du kannst diesen Code frei verwenden und anpassen.
