@@ -43,31 +43,36 @@ class HafasDiscordBot:
     
     def fetch_hafas_messages(self) -> List[Dict]:
         """Ruft Störungsmeldungen von der BVG HAFAS API ab"""
-        # Primäre API
-        url = "https://v6.bvg.transport.rest/journeys/remarks"
+        # Liste von APIs zum Ausprobieren
+        apis = [
+            "https://v6.bvg.transport.rest/journeys/remarks",
+            "https://v5.vbb.transport.rest/journeys/remarks",
+            "https://v6.vbb.transport.rest/journeys/remarks"
+        ]
         
-        # Fallback API
-        fallback_url = "https://v5.vbb.transport.rest/journeys/remarks"
-        
-        # Versuche primäre API
-        try:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            remarks = response.json()
-            return remarks if isinstance(remarks, list) else []
-        except Exception as e:
-            print(f"Primäre API fehlgeschlagen: {e}")
-            print("Versuche Fallback-API...")
-            
-            # Versuche Fallback
+        for i, url in enumerate(apis):
             try:
-                response = requests.get(fallback_url, timeout=10)
+                print(f"Versuche API {i+1}/{len(apis)}: {url}")
+                response = requests.get(url, timeout=15)
                 response.raise_for_status()
                 remarks = response.json()
-                return remarks if isinstance(remarks, list) else []
-            except Exception as e2:
-                print(f"Fallback-API auch fehlgeschlagen: {e2}")
-                return []
+                
+                if isinstance(remarks, list) and len(remarks) > 0:
+                    print(f"✓ Erfolgreich! {len(remarks)} Meldungen gefunden")
+                    return remarks
+                elif isinstance(remarks, list):
+                    print(f"✓ API antwortet, aber keine Meldungen vorhanden")
+                    return []
+                    
+            except requests.exceptions.Timeout:
+                print(f"✗ Timeout bei API {i+1}")
+            except requests.exceptions.HTTPError as e:
+                print(f"✗ HTTP Fehler bei API {i+1}: {e.response.status_code}")
+            except Exception as e:
+                print(f"✗ Fehler bei API {i+1}: {type(e).__name__}")
+        
+        print("Alle APIs fehlgeschlagen - keine Meldungen verfügbar")
+        return []
     
     def create_discord_embed(self, message: Dict, resolved: bool = False) -> Dict:
         """Erstellt ein Discord Embed aus einer HAFAS-Nachricht"""
